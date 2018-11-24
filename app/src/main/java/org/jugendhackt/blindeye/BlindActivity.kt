@@ -3,15 +3,19 @@ package org.jugendhackt.blindeye
 import android.annotation.SuppressLint
 import android.location.LocationManager
 import android.os.Bundle
+import android.os.StrictMode
 import android.support.v7.app.AppCompatActivity
 import android.view.Window
 import android.view.WindowManager
+import com.android.volley.Request
+import com.android.volley.Response
+import com.android.volley.toolbox.StringRequest
+import com.android.volley.toolbox.Volley
 import com.google.android.gms.location.LocationRequest
+import org.json.JSONArray
+import org.json.JSONObject
 import pl.charmas.android.reactivelocation2.ReactiveLocationProvider
-import java.io.BufferedReader
-import java.io.InputStreamReader
-import java.net.HttpURLConnection
-import java.net.URL
+
 
 class BlindActivity : AppCompatActivity() {
     private var locationManager: LocationManager? = null
@@ -36,27 +40,29 @@ class BlindActivity : AppCompatActivity() {
         val locationProvider = ReactiveLocationProvider(this)
         val subscription = locationProvider.getUpdatedLocation(request)
                 .subscribe {
-                    sendGet("obstacles?lat_like=${String.format("%.2f", it.latitude)}&long_like=${String.format("%.2f", it.longitude)}")
+                    sendGet("obstacles?lat_like=${it.latitude.toString().substring(0, 5)}&long_like=${it.longitude.toString().substring(0, 5)}")
                 }
     }
 
-    private fun sendGet(path: String): String {
+    private fun sendGet(path: String) {
+        val policy = StrictMode.ThreadPolicy.Builder().permitAll().build()
+        StrictMode.setThreadPolicy(policy)
         val url = "http://192.168.137.1:4242/$path" // TODO: No hardcoded IP
-        val obj = URL(url)
+        val queue = Volley.newRequestQueue(this)
 
-        with(obj.openConnection() as HttpURLConnection) {
-            requestMethod = "GET"
-            BufferedReader(InputStreamReader(inputStream)).use {
-                val response = StringBuffer()
+        val stringReq = StringRequest(Request.Method.GET, url,
+                Response.Listener<String> { response ->
 
-                var inputLine = it.readLine()
-                while (inputLine != null) {
-                    response.append(inputLine)
-                    inputLine = it.readLine()
-                }
-                return response.toString()
-            }
-        }
+                    var stringResponse = response.toString()
+                    val jsonArray = JSONArray(stringResponse)
+                    for (i in 0 until jsonArray.length()) {
+                        var jsonInner: JSONObject = jsonArray.getJSONObject(i)
+                        val data = jsonInner.get("type")
+                        TTS(this, data.toString())
+                    }
+                },
+                Response.ErrorListener { TTS(this, "There is a problem!") })
+        queue.add(stringReq)
     }
 
     private fun getDistance(lat_a: Float, lng_a: Float, lat_b: Float, lng_b: Float): Double {
