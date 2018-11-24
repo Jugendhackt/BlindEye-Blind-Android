@@ -4,6 +4,7 @@ import android.annotation.SuppressLint
 import android.os.Bundle
 import android.os.StrictMode
 import android.support.v7.app.AppCompatActivity
+import android.util.Log
 import android.view.Window
 import android.view.WindowManager
 import com.android.volley.Request
@@ -62,13 +63,12 @@ class BlindActivity : AppCompatActivity() {
                         val responseLong = jsonInner.get("long") as Double
                         descriptions.add(description)
 
-                        val value = getDistance(lat.toFloat(), long.toFloat(), responseLat.toFloat(), responseLong.toFloat())
-
-                        if (description !in descriptions && getDistance(lat.toFloat(), long.toFloat(), responseLat.toFloat(), responseLong.toFloat()) < 4)
-                            TTS(this, description)
+                        val distance = getDistance(lat.toFloat(), long.toFloat(), responseLat.toFloat(), responseLong.toFloat())
+                        if (description !in descriptions && distance < 50)
+                            TTS(this, "$description in $distance Metern")
                     }
                 },
-                Response.ErrorListener { TTS(this, "There is a problem!") })
+                Response.ErrorListener { Log.e("HTTP", "Error in resolving!") })
         queue.add(stringReq)
     }
 
