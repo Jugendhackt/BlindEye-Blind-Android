@@ -1,7 +1,6 @@
 package org.jugendhackt.blindeye
 
 import android.annotation.SuppressLint
-import android.location.LocationManager
 import android.os.Bundle
 import android.os.StrictMode
 import android.support.v7.app.AppCompatActivity
@@ -18,7 +17,7 @@ import pl.charmas.android.reactivelocation2.ReactiveLocationProvider
 
 
 class BlindActivity : AppCompatActivity() {
-    private var locationManager: LocationManager? = null
+    private val descriptions: ArrayList<String> = ArrayList()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         requestWindowFeature(Window.FEATURE_NO_TITLE)
@@ -34,17 +33,18 @@ class BlindActivity : AppCompatActivity() {
     private fun getLocation() {
         val request: LocationRequest = LocationRequest.create()
                 .setPriority(LocationRequest.PRIORITY_HIGH_ACCURACY)
-                .setNumUpdates(5)
                 .setInterval(100)
 
         val locationProvider = ReactiveLocationProvider(this)
-        val subscription = locationProvider.getUpdatedLocation(request)
+        locationProvider.getUpdatedLocation(request)
                 .subscribe {
-                    sendGet("obstacles?lat_like=${it.latitude.toString().substring(0, 5)}&long_like=${it.longitude.toString().substring(0, 5)}")
+                    val lat = it.latitude
+                    val long = it.longitude
+                    sendGet("obstacles?lat_like=${lat.toInt()}&long_like=${long.toInt()}", lat, long)
                 }
     }
 
-    private fun sendGet(path: String) {
+    private fun sendGet(path: String, lat: Double, long: Double) {
         val policy = StrictMode.ThreadPolicy.Builder().permitAll().build()
         StrictMode.setThreadPolicy(policy)
         val url = "http://192.168.137.1:4242/$path" // TODO: No hardcoded IP
@@ -57,8 +57,15 @@ class BlindActivity : AppCompatActivity() {
                     val jsonArray = JSONArray(stringResponse)
                     for (i in 0 until jsonArray.length()) {
                         var jsonInner: JSONObject = jsonArray.getJSONObject(i)
-                        val data = jsonInner.get("type")
-                        TTS(this, data.toString())
+                        val description = jsonInner.get("description") as String
+                        val responseLat = jsonInner.get("lat") as Double
+                        val responseLong = jsonInner.get("long") as Double
+                        descriptions.add(description)
+
+                        val value = getDistance(lat.toFloat(), long.toFloat(), responseLat.toFloat(), responseLong.toFloat())
+
+                        if (description !in descriptions && getDistance(lat.toFloat(), long.toFloat(), responseLat.toFloat(), responseLong.toFloat()) < 4)
+                            TTS(this, description)
                     }
                 },
                 Response.ErrorListener { TTS(this, "There is a problem!") })
