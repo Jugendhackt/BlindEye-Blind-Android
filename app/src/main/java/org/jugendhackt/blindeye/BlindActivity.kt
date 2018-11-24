@@ -1,36 +1,20 @@
 package org.jugendhackt.blindeye
 
-import android.Manifest
-import android.Manifest.permission.ACCESS_COARSE_LOCATION
 import android.annotation.SuppressLint
-import android.content.pm.PackageManager
-import android.location.Location
-import android.location.LocationListener
 import android.location.LocationManager
-import android.support.v7.app.AppCompatActivity
 import android.os.Bundle
-import android.os.Handler
-import android.support.v4.app.ActivityCompat
-import android.support.v4.content.ContextCompat
-import android.view.View
+import android.support.v7.app.AppCompatActivity
 import android.view.Window
 import android.view.WindowManager
-import android.widget.Toast
-import com.google.android.gms.location.*
-import kotlinx.android.synthetic.main.activity_blind.*
+import com.google.android.gms.location.LocationRequest
+import pl.charmas.android.reactivelocation2.ReactiveLocationProvider
 import java.io.BufferedReader
 import java.io.InputStreamReader
 import java.net.HttpURLConnection
 import java.net.URL
-import java.security.Permission
 
-/**
- * An example full-screen activity that shows and hides the system UI (i.e.
- * status bar and navigation/system bar) with user interaction.
- */
 class BlindActivity : AppCompatActivity() {
-    private lateinit var locationCallback: LocationCallback
-    private lateinit var fusedLocationClient: FusedLocationProviderClient
+    private var locationManager: LocationManager? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         requestWindowFeature(Window.FEATURE_NO_TITLE)
@@ -38,30 +22,22 @@ class BlindActivity : AppCompatActivity() {
         window.setFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN,
                 WindowManager.LayoutParams.FLAG_FULLSCREEN)
         setContentView(R.layout.activity_blind)
-
-        checkPermission(Manifest.permission.ACCESS_FINE_LOCATION, 1, 1)
-        ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION)
-        fusedLocationClient = LocationServices.getFusedLocationProviderClient(this)
-
-        locationCallback = object : LocationCallback() {
-            override fun onLocationResult(locationResult: LocationResult?) {
-                locationResult ?: return
-                for (location in locationResult.locations){
-                    Toast.makeText(this@BlindActivity, "Lat: ${location.latitude} & Long: ${location.longitude}", Toast.LENGTH_LONG).show()
-                    val data = sendGet("obstacles?lat_like=${String.format("%.2f", location.latitude)}&long_like=${String.format("%.2f", location.longitude)}")
-                }
-            }
-        }
-
-        fusedLocationClient.requestLocationUpdates(locationRequest, locationCallback, null)
-
-        //TTS(this@BlindActivity, "Achtung, da ist eine Treppe vor dir!")
+        getLocation()
     }
 
-    private val locationRequest = LocationRequest().apply {
-        interval = 10000
-        fastestInterval = 5000
-        priority = LocationRequest.PRIORITY_HIGH_ACCURACY
+    //define the listener
+    @SuppressLint("MissingPermission")
+    private fun getLocation() {
+        val request: LocationRequest = LocationRequest.create()
+                .setPriority(LocationRequest.PRIORITY_HIGH_ACCURACY)
+                .setNumUpdates(5)
+                .setInterval(100)
+
+        val locationProvider = ReactiveLocationProvider(this)
+        val subscription = locationProvider.getUpdatedLocation(request)
+                .subscribe {
+                    sendGet("obstacles?lat_like=${String.format("%.2f", it.latitude)}&long_like=${String.format("%.2f", it.longitude)}")
+                }
     }
 
     private fun sendGet(path: String): String {
