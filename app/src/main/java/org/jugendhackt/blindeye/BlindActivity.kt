@@ -34,7 +34,7 @@ class BlindActivity : AppCompatActivity() {
     private fun getLocation() {
         val request: LocationRequest = LocationRequest.create()
                 .setPriority(LocationRequest.PRIORITY_HIGH_ACCURACY)
-                .setInterval(100)
+                .setInterval(1000)
 
         val locationProvider = ReactiveLocationProvider(this)
         locationProvider.getUpdatedLocation(request)
@@ -61,11 +61,12 @@ class BlindActivity : AppCompatActivity() {
                         val description = jsonInner.get("description") as String
                         val responseLat = jsonInner.get("lat") as Double
                         val responseLong = jsonInner.get("long") as Double
-                        descriptions.add(description)
 
                         val distance = getDistance(lat.toFloat(), long.toFloat(), responseLat.toFloat(), responseLong.toFloat())
-                        if (description !in descriptions && distance < 50)
-                            TTS(this, "$description in $distance Metern")
+                        if (description !in descriptions && distance < 50) {
+                            descriptions.add(description)
+                            TTS(this, "$description in ${distance.toInt()} Metern")
+                        }
                     }
                 },
                 Response.ErrorListener { Log.e("HTTP", "Error in resolving!") })
